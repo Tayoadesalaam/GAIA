@@ -1,0 +1,9 @@
+import {useRef} from 'react';import {motion,useScroll,useTransform} from 'framer-motion';import Particles from '../components/Particles';import {Words,Sec,Cell,ImgSlot} from '../lib/grid';
+import {Header,Layer,Savings,Comparison,Faqs,GetStarted,Footer} from '../components/sections';import {CMP} from './Home';
+const shotFor=t=>/deform|sar|nisar|ground|planner/i.test(t)?'deformation':/veget|plant|season|farm/i.test(t)?'vegetation':/flood|rain|gpm|hazard|insur/i.test(t)?'flooding':/coverage|data|integr/i.test(t)?'fullscreen':'overview';
+export default function Template({page:[,t,k,d]}){const r=useRef();const{scrollYProgress:p}=useScroll({target:r,offset:['start start','end start']});const y=useTransform(p,[0,1],[0,120]);
+return<><Header/><section ref={r} data-bg="black" className="phero px"><Particles mix={2} className="hero-gl" count={5000}/><motion.div className="g phero-in" style={{y}}><Cell nb="nb"><span className="mono">{k}</span><Words as="h1" className="t1" text={t}/><p className="lede">{d}</p></Cell></motion.div></section>
+<Layer title={`${t}: the signal.`} desc={`${d} Pulled for the exact point you search.`} slot={t} shot={[shotFor(t),'chart']} subs={['Sourced from NASA NISAR radar.','Latency and resolution shown on every chart.']}/>
+<Layer bg="black" title="Read it in a line." desc="What changed, how fast, and how it compares with the local norm." slot={t+' · reading'} shot={['overview','chart']} subs={['A one-line reading under every chart.','Tables sit beside charts for export.']}/>
+<Savings head={['Built for','the question.']} rows={[[t+' in one search.','Type a place or draw an area and get the reading.',shotFor(t)],['Every engine, one view.','Ground, canopy and water side by side.','overview'],['Explained.','Sources, confidence and limits on every screen.','fullscreen']]}/>
+<Comparison rows={CMP}/><Faqs/><GetStarted/><Footer/></>}

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaia-backend"
+version = "0.1.0"
+description = "GAIA — NISAR-based surface change intelligence (NASA Space Apps 2026)"
+requires-python = ">=3.10"
+dependencies = [
+  "asf_search>=14.0",
+  "shapely>=2.0",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+pipeline = ["openseppo[nisar]>=0.10", "rasterio>=1.3", "numpy>=1.26"]
+api = ["fastapi>=0.110", "uvicorn>=0.29"]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+gaia = "gaia.cli:main"
+
+[tool.setuptools]
+packages = ["gaia"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

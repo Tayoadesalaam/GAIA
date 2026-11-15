@@ -1,0 +1,94 @@
+/* GAIA presentation (/present). Monochrome, from the site's tokens: #0a0a0a, #f3f3f1 and its muted grey;
+   Bricolage Grotesque / Inter Tight / JetBrains Mono. Sizes in vw so a 16:9 projector and a laptop match. */
+.pz{--bg:#0a0a0a;--fg:#f3f3f1;--mu:rgba(243,243,241,.6);--faint:rgba(243,243,241,.34);--hair:rgba(243,243,241,.22);
+  position:fixed;inset:0;overflow:hidden;background:var(--bg);color:var(--fg);font-family:'Inter Tight',Arial,sans-serif;cursor:default;user-select:none}
+.pz-field{position:absolute;inset:0}.pz-field canvas{width:100%;height:100%;display:block}
+.pz-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.55))}
+.pz-stage{position:absolute;inset:0;padding:6.2vw 6.2vw 6.8vw;display:flex;cursor:pointer}
+.pz-s{position:relative;flex:1;display:flex;flex-direction:column;min-width:0}
+/* type: 7.6 / 4.6 / 1.55 / 1.15 / .8 vw */
+.pz-h1,.pz-h2{font-family:'Bricolage Grotesque',Georgia,serif;font-weight:500;letter-spacing:-.035em;margin:0}
+.pz-h1{font-size:clamp(44px,7.6vw,168px);line-height:.95}
+.pz-h2{font-size:clamp(32px,4.6vw,104px);line-height:1}
+.pz-lede{font-size:clamp(17px,1.55vw,34px);line-height:1.35;color:var(--mu);margin:1.6vw 0 0;max-width:38ch}
+.pz-eyebrow,.pz-mono{font-family:'JetBrains Mono','Courier New',monospace;font-size:clamp(11px,.8vw,17px);letter-spacing:.09em;text-transform:uppercase;margin:0}
+.pz-eyebrow{color:var(--mu);margin-bottom:1.6vw}.pz-dim{color:var(--faint)}
+.pz-center{text-align:center;margin-inline:auto}
+
+/* 01 opening: statement low-left, the planet forms to the right */
+.pz-open{justify-content:flex-end}.pz-open .pz-h1{max-width:9ch}.pz-open .pz-mono{margin-top:2.2vw}
+
+/* 02 context: statement top-left, four indicators on one baseline */
+.pz-stats{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3vw}
+.pz-stat{display:flex;flex-direction:column;gap:.6vw}.pz-rule{display:block;height:1px;background:var(--hair);transform-origin:left;margin-bottom:1.2vw}
+.pz-stat b{font-family:'Bricolage Grotesque',Georgia,serif;font-weight:500;font-size:clamp(22px,2.6vw,58px);letter-spacing:-.03em;line-height:1}
+.pz-stat span{font-size:clamp(13px,1.05vw,23px);color:var(--mu);max-width:22ch}
+
+/* 03 problem: three fragments under the three particle shards, tied by one line */
+.pz-trio{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
+.pz-frag{display:flex;flex-direction:column;align-items:center;gap:.7vw;padding:0 2vw}
+.pz-frag b{font-family:'Bricolage Grotesque',Georgia,serif;font-weight:500;font-size:clamp(24px,3vw,66px);letter-spacing:-.03em;line-height:1}
+.pz-frag span:last-child{font-size:clamp(13px,1.05vw,23px);color:var(--mu);max-width:24ch}
+.pz-link{display:block;height:1px;margin:2.6vw 12% 0;background:linear-gradient(90deg,transparent,var(--hair) 15%,var(--hair) 85%,transparent);transform-origin:center}
+.pz-problem .pz-lede{margin-top:1.8vw;max-width:46ch}
+
+/* 04 breakthrough: steps left, the real map large on the right */
+.pz-break{flex-direction:row;gap:4vw;align-items:center}
+.pz-break-l{flex:0 0 31vw;display:flex;flex-direction:column}
+.pz-layers{list-style:none;margin:3vw 0 0;padding:0;display:flex;flex-direction:column;gap:1.7vw}
+.pz-layers li{display:flex;gap:1.2vw;padding-top:1.2vw;border-top:1px solid var(--hair)}
+.pz-layers li>.pz-mono{color:var(--faint);padding-top:.35vw}
+.pz-layers b{display:block;font-weight:500;font-size:clamp(15px,1.25vw,28px)}.pz-layers li span:last-child{display:block;font-size:clamp(13px,1.02vw,22px);color:var(--mu);margin-top:.3vw}
+.pz-viz{flex:1;min-width:0;display:flex;flex-direction:column;gap:1.4vw}
+.pz-map{position:relative;width:100%;max-width:calc(64vh*800/570);aspect-ratio:800/570;overflow:hidden;border-radius:4px}
+.pz-map img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:4px}
+.pz-map-gray{filter:grayscale(1) contrast(1.15) brightness(.8)}
+.pz-aoi{position:absolute;left:32.75%;top:35.6%;width:54.4%;height:41.1%;border:1px solid var(--fg);box-shadow:0 0 0 100vmax rgba(10,10,10,.35)}
+.pz-tag{position:absolute;font-family:'JetBrains Mono','Courier New',monospace;font-size:clamp(10px,.75vw,16px);letter-spacing:.06em;text-transform:uppercase;color:var(--fg);padding:.3vw .5vw;background:rgba(10,10,10,.75)}
+.pz-insight{display:flex;align-items:baseline;gap:1.4vw;flex-wrap:wrap}
+.pz-insight b{font-family:'Bricolage Grotesque',Georgia,serif;font-weight:500;font-size:clamp(26px,3.2vw,72px);letter-spacing:-.03em;line-height:1}
+.pz-insight span{font-size:clamp(13px,1.02vw,22px);color:var(--mu)}
+
+/* 05 solution: the real dashboard, its parts focused one by one */
+.pz-sol{display:grid;grid-template-columns:1fr 25vw;grid-template-rows:auto 1fr;column-gap:3.5vw;row-gap:2.4vw}
+.pz-sol-head{grid-column:1/-1}.pz-sol .pz-h2{font-size:clamp(28px,3.6vw,82px)}
+.pz-ui{position:relative;align-self:start;width:min(100%,calc(60vh*1.6));overflow:hidden;border-radius:6px;transform-origin:50% 0;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.pz-ui img{display:block;width:100%;height:auto;filter:grayscale(1) contrast(1.08)}
+.pz-hl{position:absolute;border:1px solid var(--fg);border-radius:6px;transition:box-shadow .6s}
+.pz-hl.on{box-shadow:0 0 0 100vmax rgba(10,10,10,.55)}
+.pz-hl em{position:absolute;top:.5vw;left:.5vw;width:1.8vw;height:1.8vw;min-width:22px;min-height:22px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font:500 clamp(11px,.8vw,17px) 'JetBrains Mono',monospace;font-style:normal}
+.pz-calls{list-style:none;margin:0;padding:0;align-self:center;display:flex;flex-direction:column;gap:1.6vw}
+.pz-calls li{display:flex;gap:1vw}.pz-calls li>.pz-mono{color:var(--faint);padding-top:.3vw}
+.pz-calls b{display:block;font-weight:500;font-size:clamp(14px,1.2vw,27px)}.pz-calls li span:last-child{display:block;font-size:clamp(12px,.98vw,21px);color:var(--mu);margin-top:.25vw}
+
+/* 06 impact: three real numbers, then who the engines serve */
+.pz-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:3vw;margin-top:2.6vw}
+.pz-metrics div{display:flex;flex-direction:column;gap:.5vw;border-top:1px solid var(--hair);padding-top:1.1vw}
+.pz-metrics b{font-family:'Bricolage Grotesque',Georgia,serif;font-weight:500;font-size:clamp(28px,3.4vw,76px);letter-spacing:-.03em;line-height:1}
+.pz-metrics span{font-size:clamp(12px,1vw,22px);color:var(--mu);max-width:26ch}
+.pz-net{position:relative;flex:1;min-height:0;margin:2.2vw 0 0}
+.pz-net svg{position:absolute;inset:0;width:100%;height:100%}
+.pz-node{position:absolute;transform:translateY(-50%);line-height:1.2;font-size:clamp(13px,1.1vw,24px);white-space:nowrap}
+.pz-node-l{right:70%;padding-right:1vw;text-align:right}.pz-node-r{left:70%;padding-left:1vw;color:var(--mu)}
+.pz-take{margin:0;max-width:none;color:var(--fg)}
+
+/* 07 closing: the single point of light above, one line below */
+.pz-close{align-items:center;justify-content:flex-end;text-align:center}
+.pz-close-h{font-size:clamp(36px,5.6vw,124px)}
+.pz-close-id{display:flex;flex-direction:column;align-items:center;gap:1.1vw;margin-top:2.8vw}
+.pz-close-logo{height:clamp(18px,1.6vw,34px);width:auto;color:var(--fg)}
+
+/* chrome */
+.pz-nav{position:absolute;left:6.2vw;right:6.2vw;bottom:calc(2.2vw + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:2vw;z-index:2}
+.pz-home{color:var(--mu)}.pz-home .logo{height:clamp(14px,1.1vw,24px);width:auto}.pz-home:hover{color:var(--fg)}
+.pz-ticks{flex:1;display:flex;justify-content:center;gap:.6vw}
+.pz-ticks button{width:2.2vw;min-width:22px;height:20px;padding:0;background:none;border:0;cursor:pointer;position:relative}
+.pz-ticks button::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--faint);transition:background .4s,height .4s}
+.pz-ticks button.on::after{background:var(--fg);height:2px}
+.pz-ticks button:focus-visible{outline:1px solid var(--fg);outline-offset:3px}
+.pz-count{min-width:5em;text-align:right}
+.pz-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+@media (max-aspect-ratio:4/3){.pz-break{flex-direction:column;align-items:stretch}.pz-break-l{flex:none}.pz-map{max-height:44vh}
+  .pz-sol{grid-template-columns:1fr}.pz-calls{display:none}.pz-stats,.pz-metrics{grid-template-columns:1fr 1fr}}
+@media (prefers-reduced-motion:reduce){.pz-hl{transition:none}}

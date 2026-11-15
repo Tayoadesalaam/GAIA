@@ -1,0 +1,730 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Gaia</title><link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="/gaia-config.js"></script>
+<style>
+/* Layout: full-bleed procedural terrain map behind everything; glass panels float over it. Landing scrolls, dashboard is a fixed three-column HUD. */
+:root{
+  --bg:#141414; --ink:#f3f3f1; --mute:rgba(243,243,241,.56); --faint:rgba(243,243,241,.30);
+  --glass:rgba(255,255,255,.055); --glass-2:rgba(255,255,255,.10); --line:rgba(255,255,255,.13);
+  --solid:#f3f3f1; --on-solid:#050505;
+  --f-display:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+  --f-body:'Inter Tight','Helvetica Neue',Arial,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --r:22px; --r-s:14px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-x:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+a{color:inherit;text-decoration:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;letter-spacing:-.03em;line-height:1;margin:0;text-wrap:balance}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(22px) saturate(120%);-webkit-backdrop-filter:blur(22px) saturate(120%)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 20px;border-radius:99px;border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(16px);font-weight:500;transition:background .2s,transform .2s}
+.btn:hover{background:var(--glass-2)}
+.btn.solid{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.btn.solid:hover{background:#fff}
+/* map */
+#map{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+#veil{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% -10%,rgba(255,255,255,.045),transparent 55%)}
+
+/* nav */
+.nav{position:fixed;z-index:50;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:calc(14px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;pointer-events:none}
+.nav>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:-.04em;margin-right:6px}
+.mark{width:30px;height:30px;border-radius:50%;background:var(--solid);display:grid;place-items:center}
+.mark svg{width:18px;height:18px}
+.wm{display:block;height:22px;width:62px;fill:currentColor}
+.pill{display:flex;gap:2px;padding:5px;border-radius:99px;border:1px solid var(--line);background:rgba(10,10,10,.55);backdrop-filter:blur(22px);position:relative}
+.pill a,.pill button{padding:8px 16px;border-radius:99px;font-size:14px;color:var(--mute);transition:color .2s,background .2s;white-space:nowrap}
+.pill a:hover,.pill button:hover,.pill .on{color:var(--on-solid);background:var(--solid)}
+.nav .sp{flex:1}
+.dd{position:relative}
+.dd-menu{position:absolute;top:calc(100% + 14px);left:0;min-width:260px;padding:10px;display:none;flex-direction:column;gap:2px;background:rgba(14,14,14,.82)}
+.dd:hover .dd-menu,.dd:focus-within .dd-menu{display:flex}
+.dd-menu a{display:block;padding:10px 12px;border-radius:12px;color:var(--ink)!important;background:none!important}
+.dd-menu a small{display:block;color:var(--mute);font-size:12px}
+.dd-menu a:hover{background:var(--glass-2)!important}
+.burger{display:none;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:rgba(10,10,10,.6);place-items:center}
+/* landing */
+main{position:relative;z-index:2}
+.wrap{max-width:1240px;margin:0 auto}
+section{padding-block:110px;position:relative}
+.hero{min-height:760px;padding-top:170px;padding-bottom:90px;display:flex;flex-direction:column;justify-content:flex-end}
+.hero h1{font-size:clamp(46px,8.4vw,128px);max-width:14ch}
+.hero h1 em{font-style:normal;color:var(--faint)}
+.hero p.lede{max-width:52ch;color:var(--mute);font-size:18px;margin:28px 0 34px}
+.search{display:flex;align-items:center;gap:10px;max-width:560px;height:58px;padding:0 8px 0 22px;border-radius:99px}
+.search input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:16px}
+.search input::placeholder{color:var(--faint)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{padding:6px 14px;border-radius:99px;border:1px solid var(--line);font-size:13px;color:var(--mute);transition:.2s}
+.chip:hover,.chip.on{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.hero-meta{display:flex;gap:28px;flex-wrap:wrap;margin-top:56px;padding-top:22px;border-top:1px solid var(--line)}
+.eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ink)}
+h2.big{font-size:clamp(34px,5.4vw,76px);max-width:18ch}
+.sub{max-width:56ch;color:var(--mute);font-size:17px;margin-top:22px}
+.layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:64px}
+.layer{padding:30px;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:30px;transition:background .3s}
+.layer:hover{background:var(--glass-2)}
+.layer h3{font-size:30px;margin:14px 0 14px}
+.layer p{color:var(--mute)}
+.num{font-family:var(--f-display);font-size:64px;letter-spacing:-.05em;line-height:.9}
+.ph{position:relative;border-radius:var(--r);border:1px solid var(--line);overflow:hidden;background:
+  linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02)),repeating-linear-gradient(45deg,rgba(255,255,255,.04) 0 1px,transparent 1px 14px);aspect-ratio:16/10;display:grid;place-items:center;text-align:center;padding:20px}
+.ph::before,.ph::after{content:"";position:absolute;inset:0;background:linear-gradient(to top right,transparent calc(50% - .5px),var(--line) 50%,transparent calc(50% + .5px))}
+.ph::after{transform:scaleX(-1)}
+.ph b{position:relative;z-index:1;background:rgba(5,5,5,.78);border:1px solid var(--line);padding:10px 16px;border-radius:12px;font:500 11px/1.5 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;max-width:300px}
+.ph.sq{aspect-ratio:1}
+.plat{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;margin-top:64px;align-items:start}
+.tabs{display:flex;flex-direction:column}
+.tab{display:block;width:100%;text-align:left;padding:24px 0;border-top:1px solid var(--line);color:var(--faint);transition:color .25s}
+.tab:last-child{border-bottom:1px solid var(--line)}
+.tab h3{font-size:28px;display:flex;justify-content:space-between;align-items:center}
+.tab p{max-height:0;overflow:hidden;opacity:0;transition:max-height .45s,opacity .35s,margin .3s;color:var(--mute);max-width:44ch}
+.tab.on{color:var(--ink)}
+.tab.on p{max-height:200px;opacity:1;margin-top:14px}
+.tab .lk{display:inline-block;margin-top:14px;border-bottom:1px solid var(--ink)}
+.stage{position:sticky;top:110px}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:60px}
+.step{padding:16px 16px 26px}
+.step h3{font-size:22px;margin:18px 0 10px}
+.step p{color:var(--mute);font-size:14px}
+.icons{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin-top:56px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.ic{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--glass);transition:background .25s,color .25s}
+.ic:hover{background:var(--solid);color:var(--on-solid)}
+.ic svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ic span{font:500 10px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.ic:hover span{color:var(--on-solid)}
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:56px}
+.card{padding:34px}
+.card h3{font-size:30px;margin:14px 0}
+.card p{color:var(--mute)}
+.logos{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.logo{padding:12px 20px;border-radius:14px;border:1px solid var(--line);font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:-.02em}
+.tbl{width:100%;border-collapse:collapse;margin-top:48px;font-size:14px}
+.tbl th{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+.tbl td{padding:16px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl td:first-child{font-weight:500}
+.tw{overflow-x:auto;border-radius:var(--r)}
+.tbl code{font-family:var(--f-mono);font-size:12px;color:var(--mute)}
+details{border-top:1px solid var(--line);padding:22px 0}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{list-style:none;font-family:var(--f-display);font-size:24px;letter-spacing:-.02em;display:flex;justify-content:space-between;gap:20px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";transition:transform .3s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{color:var(--mute);margin-top:14px;max-width:62ch}
+.cta{text-align:left;padding:70px 54px;overflow:hidden}
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:50px 0 60px;background:rgba(5,5,5,.7);backdrop-filter:blur(14px)}
+.foot{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:30px}
+.foot a{display:block;color:var(--mute);padding:4px 0}
+.foot a:hover{color:var(--ink)}
+.rv{opacity:1;transform:none}
+.js .rv{opacity:0;transform:translateY(34px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+.js .rv.in{opacity:1;transform:none}
+.marq{overflow:hidden;border-block:1px solid var(--line);background:rgba(5,5,5,.55);backdrop-filter:blur(10px);padding:18px 0}
+.marq div{display:flex;gap:56px;width:max-content;animation:mq 38s linear infinite;font:500 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+@keyframes mq{to{transform:translateX(-50%)}}
+@media (max-width:980px){
+  .pill.links{display:none}.burger{display:grid}
+  .layers,.split,.plat{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .icons{grid-template-columns:repeat(3,minmax(0,1fr))}.foot{grid-template-columns:1fr 1fr}.stage{position:static}
+  .cta{padding:40px 24px}section{padding-block:80px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.marq div{animation:none}.js .rv{opacity:1;transform:none;transition:none}}
+</style>
+<style>
+/* dashboard HUD */
+#dash{display:none;position:fixed;inset:0;z-index:5;overflow-y:auto;overflow-x:hidden;padding:calc(84px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-left,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+body.is-dash #dash{display:block}
+body.is-dash #landing,body.is-dash footer{display:none}
+body:not(.is-dash) #dash{display:none}
+.dgrid{display:grid;grid-template-columns:280px minmax(0,1fr) 310px;gap:12px;align-items:start;max-width:1560px;margin:0 auto}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{padding:15px 16px}
+.ph-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
+.ph-h h4{margin:0;font:500 14px var(--f-body)}
+.tag{font:500 10px var(--f-mono);letter-spacing:.06em;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--mute);white-space:nowrap}
+.dh{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.dh h1{font-size:clamp(26px,2.6vw,38px)}
+.dh .meta{color:var(--mute);font-size:13px;margin-left:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{height:34px;padding:0 15px;border-radius:99px;border:1px solid var(--line);background:rgba(10,10,10,.5);font-size:13px;color:var(--mute);transition:.2s}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kv div{background:rgba(255,255,255,.045);border-radius:10px;padding:7px 10px;min-width:0}
+.kv small{display:block;color:var(--mute);font-size:11px}
+.kv b{font:500 15px var(--f-display);letter-spacing:-.01em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.big-n{font:500 32px/1 var(--f-display);letter-spacing:-.03em}
+.big-n small{font:400 14px var(--f-body);color:var(--mute);margin-left:4px}
+.rings{display:flex;gap:10px;justify-content:space-between}
+.ring{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:11px;color:var(--mute);flex:1;cursor:pointer}
+.ring svg{width:50px;height:50px;transform:rotate(-90deg)}
+.ring text{transform:rotate(90deg);transform-origin:31px 31px}
+.ring:hover{color:var(--ink)}
+.cv{padding:20px}
+.cv .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.cv .hl{font:500 36px/1 var(--f-display);letter-spacing:-.03em;margin:8px 0 4px}
+.cv .hl small{font:400 15px var(--f-body);color:var(--mute);margin-left:6px}
+.chart{width:100%;height:200px;display:block;margin-top:12px}
+.chart text{font:400 10px var(--f-mono);fill:var(--mute)}
+.gt{overflow-x:auto;margin-top:16px;border-radius:14px;background:rgba(255,255,255,.04)}
+.gt table{border-collapse:collapse;width:100%;min-width:640px;font-size:12px}
+.gt th,.gt td{padding:9px 6px;text-align:center;font-family:var(--f-mono)}
+.gt th{color:var(--mute);font-weight:400}
+.gt td:first-child,.gt th:first-child{text-align:left;padding-left:14px;color:var(--mute)}
+.gt td.hot{background:var(--solid);color:var(--on-solid);border-radius:6px}
+.bars{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.bar{display:grid;grid-template-columns:62px 1fr 34px;align-items:center;gap:10px;font-size:12px;color:var(--mute)}
+.bar i{display:block;height:6px;border-radius:9px;background:rgba(255,255,255,.1);position:relative;overflow:hidden}
+.bar i u{position:absolute;inset:0 auto 0 0;background:rgba(255,255,255,.4);border-radius:9px;transition:width .7s cubic-bezier(.2,.7,.2,1)}
+.bar.on{color:var(--ink)}.bar.on i u{background:#fff}
+.bar span{text-align:right;font-family:var(--f-mono)}
+.mk{position:fixed;z-index:3;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:1px solid #fff;background:rgba(5,5,5,.6);backdrop-filter:blur(8px);display:none;place-items:center;font:500 11px var(--f-mono)}
+body.is-dash .mk{display:grid}
+.mk::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:1px solid rgba(255,255,255,.35);animation:pl 2.4s infinite}
+@keyframes pl{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+.mk.sel{background:#fff;color:#000}
+.note{font-size:12px;color:var(--mute);border-bottom:1px solid var(--ink);display:inline-block;margin-top:12px;padding-bottom:1px}
+.src{font:400 10px/1.5 var(--f-mono);color:var(--faint);margin-top:12px;letter-spacing:.04em}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--mute);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:2px;background:#fff;vertical-align:middle;margin-right:6px}
+.legend i.d{background:repeating-linear-gradient(90deg,#fff 0 3px,transparent 3px 6px)}
+.legend i.f{height:8px;background:rgba(255,255,255,.25)}
+.dsearch{display:flex;align-items:center;gap:8px;height:42px;padding:0 6px 0 16px;border-radius:99px;width:min(300px,34vw);position:relative}
+.dsearch input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:14px}
+.sugg{position:absolute;top:calc(100% + 8px);left:0;right:0;padding:8px;display:none;flex-direction:column;background:rgba(14,14,14,.9);z-index:60}
+.sugg.open{display:flex}
+.sugg button{text-align:left;padding:9px 12px;border-radius:10px;font-size:14px}
+.sugg button:hover{background:var(--glass-2)}
+.sugg small{color:var(--mute);margin-left:6px}
+.av{width:42px;height:42px;border-radius:50%;border:1px solid var(--ink);display:grid;place-items:center;font:500 12px var(--f-mono)}
+/* onboarding */
+#ob{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:16px;background:rgba(0,0,0,.62);backdrop-filter:blur(10px)}
+#ob.open{display:grid}
+.obc{width:min(760px,100%);max-height:calc(100% - 20px);overflow:auto;padding:36px;background:rgba(14,14,14,.82);display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:34px}
+.obl h2{font-size:34px;margin:16px 0 12px}.obl p{color:var(--mute);font-size:14px}
+.dots{display:flex;gap:6px;margin-top:26px}
+.dots i{height:3px;flex:1;border-radius:3px;background:var(--line);transition:background .3s}
+.dots i.on{background:#fff}
+.opt{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;border-radius:16px;border:1px solid var(--line);margin-bottom:10px;transition:.2s;background:rgba(255,255,255,.03)}
+.opt:hover{background:var(--glass-2)}
+.opt.on{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.opt.on small{color:rgba(0,0,0,.6)}
+.opt svg{width:26px;height:26px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.opt small{display:block;color:var(--mute);font-size:12px}
+.obf{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px}
+.fld{width:100%;height:50px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.04);padding:0 16px;outline:0;margin-bottom:10px}
+.fld:focus{border-color:#fff}
+.tog{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line);font-size:14px}
+.sw{width:44px;height:26px;border-radius:99px;background:var(--line);position:relative;transition:.25s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.25s}
+.sw.on{background:#fff}.sw.on::after{left:21px;background:#000}
+#mm{position:fixed;inset:0;z-index:70;background:rgba(5,5,5,.94);backdrop-filter:blur(20px);display:none;flex-direction:column;justify-content:center;gap:6px;padding:90px 28px 40px}
+#mm.open{display:flex}
+#mm a,#mm button{font:500 38px var(--f-display);letter-spacing:-.03em;padding:6px 0;text-align:left}
+@media (max-width:1180px){.dgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dgrid .cv-col{grid-column:1/-1;order:-1}}
+@media (max-width:760px){.dgrid{grid-template-columns:1fr}.obc{grid-template-columns:1fr;padding:24px}.dsearch{display:none}.mk{display:none!important}}
+</style>
+<style>body.is-dash .nav-l{display:none}body:not(.is-dash) .nav-d{display:none}.ml{margin-left:auto}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="gaia-wm" viewBox="38 138 360 128"><g transform="translate(0,420) scale(0.1,-0.1)"><path d="M915 2702 c-97 -8 -226 -68 -295 -135 -96 -94 -149 -215 -157 -357 -18 -320 192 -550 502 -550 249 0 419 139 469 382 9 42 16 95 16 118 l0 40 -250 0 -250 0 0 -55 0 -55 181 0 181 0 -7 -42 c-19 -123 -110 -232 -222 -264 -85 -25 -213 -16 -285 19 -125 61 -198 198 -198 371 0 279 176 451 425 415 113 -16 192 -69 241 -164 l29 -55 68 0 c47 0 67 4 67 13 0 22 -49 118 -80 158 -40 49 -138 115 -204 135 -54 16 -180 31 -231 26z"/><path d="M1795 2368 c-203 -497 -275 -677 -275 -686 0 -11 111 -15 126 -4 11 6 128 305 287 730 33 89 64 159 68 155 4 -4 46 -109 93 -232 48 -124 88 -227 91 -229 6 -6 109 34 112 44 1 5 -46 126 -105 269 l-108 260 -81 3 -80 3 -128 -313z"/><path d="M2776 2653 c-10 -48 -136 -934 -136 -957 0 -19 5 -21 55 -20 30 0 57 3 60 6 4 4 145 969 145 994 0 2 -27 4 -59 4 -57 0 -60 -1 -65 -27z"/><path d="M3336 2648 c-159 -383 -396 -964 -396 -970 0 -10 129 -3 138 7 5 6 30 67 57 138 l48 127 245 -2 246 -3 52 -135 52 -135 71 0 c39 0 71 3 71 7 0 4 -21 56 -46 115 -25 59 -93 221 -149 358 -57 138 -129 312 -161 388 l-57 137 -79 0 -79 0 -13 -32z m188 -326 c53 -134 96 -248 96 -252 0 -5 -88 -10 -195 -12 -107 -2 -195 -1 -195 2 0 5 112 306 180 484 6 16 12 27 14 25 3 -2 47 -114 100 -247z"/><path d="M1940 1996 l0 -53 73 -6 c163 -12 263 -80 349 -236 17 -31 19 -32 80 -29 74 4 74 5 26 106 -34 73 -120 165 -192 207 -69 40 -167 65 -258 65 l-78 0 0 -54z"/></g></symbol>
+<symbol id="logo" viewBox="0 0 24 24"><path d="M3 15c3-5 6-7 9-7s6 2 9 7" fill="none" stroke="#050505" stroke-width="2" stroke-linecap="round"/><path d="M6 19c2-2 4-3 6-3s4 1 6 3" fill="none" stroke="#050505" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-def" viewBox="0 0 24 24"><path d="M3 9c3-3 6 3 9 0s6-3 9 0M3 15c3-3 6 3 9 0s6-3 9 0"/><path d="M12 19v3M10 21l2 2 2-2" transform="translate(0 -3)"/></symbol>
+<symbol id="i-veg" viewBox="0 0 24 24"><path d="M12 21V10M12 10C12 6 9 4 5 4c0 4 2 6 7 6zM12 14c0-3 2-5 6-5 0 3-2 5-6 5z"/></symbol>
+<symbol id="i-flood" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11z"/><path d="M3 21c2-1.500 4-1.500 6 0s4 1.500 6 0 4-1.500 6 0"/></symbol>
+<symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 0 1 0-8 5 5 0 0 1 9.500 1A3.500 3.500 0 0 1 17 15z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></symbol>
+<symbol id="i-soil" viewBox="0 0 24 24"><path d="M3 8h18M3 13h18M3 18h18"/><circle cx="8" cy="10.500" r=".6"/><circle cx="15" cy="15.500" r=".6"/></symbol>
+<symbol id="i-elev" viewBox="0 0 24 24"><path d="M2 20l7-12 4 7 3-4 6 9z"/></symbol>
+<symbol id="i-sat" viewBox="0 0 24 24"><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/><path d="M4 4l4 4M16 16l4 4M17 4l3 3M4 17l3 3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 17H2z"/><path d="M12 10v4M12 17v.5"/></symbol>
+<symbol id="i-rep" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h3"/></symbol>
+<symbol id="i-api" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 5l-4 14"/></symbol>
+<symbol id="i-lay" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.500l9 5 9-5" transform="translate(0 -1)"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/></symbol>
+</svg>
+<canvas id="map" aria-hidden="true"></canvas><div id="veil"></div>
+<!-- landing nav -->
+<header class="nav nav-l">
+  <a class="brand" href="#top"><svg class="wm" role="img" aria-label="Gaia"><use href="#gaia-wm"/></svg></a>
+  <nav class="pill links" aria-label="Primary">
+    <a href="#product">Product</a>
+    <a href="#features">Features</a>
+    <a href="#hazards">Hazards</a>
+    <a href="#api">Data &amp; API</a>
+    <div class="dd"><button type="button" aria-haspopup="true">Integrations</button>
+      <div class="dd-menu glass">
+        <a href="#integrations">NASIR<small>Regional hazard intelligence feed</small></a>
+        <a href="#integrations">Groq<small>Fast inference for the Gaia assistant</small></a>
+        <a href="#api">NASA POWER, GPM, OPERA<small>Open Earth observation data</small></a>
+      </div></div>
+  </nav>
+  <span class="sp"></span>
+  <button class="btn solid" data-open-ob>Sign up</button>
+  <button class="burger" id="bg" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h16M4 16h16"/></svg></button>
+</header>
+<!-- dashboard nav -->
+<header class="nav nav-d">
+  <a class="brand" href="/" target="_top"><svg class="wm" role="img" aria-label="Gaia"><use href="#gaia-wm"/></svg></a>
+  <nav class="pill links" id="dnav" aria-label="Dashboard">
+    <button class="on" data-tab="overview">Overview</button><button data-tab="deformation">Deformation</button><button data-tab="vegetation">Vegetation</button><button data-tab="flooding">Flooding</button><button data-tab="data">Data</button>
+  </nav>
+  <span class="sp"></span>
+  <div class="dsearch glass"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="ds" placeholder="Search any location" autocomplete="off" aria-label="Search location"><div class="sugg glass" id="sg"></div></div>
+  <button class="av" style="border-color:var(--line);position:relative" aria-label="Alerts"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><use href="#i-bell"/></svg></button>
+  <div class="av" id="avt">GA</div>
+</header>
+<div id="mm"><a href="#product">Product</a><a href="#features">Features</a><a href="#hazards">Hazards</a><a href="#api">Data &amp; API</a><a href="#integrations">Integrations</a><button data-open-ob>Sign up</button></div>
+
+<main id="landing"><span id="top"></span>
+<section class="hero" data-cursor="Scroll" id="hero"><div class="wrap" style="width:100%">
+  <div class="eyebrow mono rv">NASA Earth observation · demo build</div>
+  <h1 class="rv">Know the ground <em>before it</em> moves.</h1>
+  <p class="lede rv">Gaia reads NASA satellite and climate data for any place on Earth. See land deformation, planting seasons and flood exposure in one calm dashboard.</p>
+  <form class="search glass rv" id="hs" data-cursor="Type"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="hq" placeholder="Search a city, farm or river basin" aria-label="Search location"><button class="btn solid" type="submit">Analyse</button></form>
+  <div class="chips rv" id="hc"><button class="chip" data-q="Jos">Jos</button><button class="chip" data-q="Lagos">Lagos</button><button class="chip" data-q="Nairobi">Nairobi</button><button class="chip" data-q="Jakarta">Jakarta</button><button class="chip" data-q="Dhaka">Dhaka</button><button class="chip" data-q="Houston">Houston</button></div>
+  <div class="hero-meta rv"><div><div class="mono">Deformation</div>mm per year</div><div><div class="mono">Vegetation</div>NDVI and planting windows</div><div><div class="mono">Flooding</div>Rainfall and exposure</div></div>
+</div></section>
+<div class="marq" aria-hidden="true"><div><span>NASA POWER</span><span>GPM IMERG</span><span>OPERA DISP</span><span>MODIS NDVI</span><span>SMAP soil moisture</span><span>SRTM elevation</span><span>Open-Meteo</span><span>NASA POWER</span><span>GPM IMERG</span><span>OPERA DISP</span><span>MODIS NDVI</span><span>SMAP soil moisture</span><span>SRTM elevation</span><span>Open-Meteo</span></div></div>
+
+<section id="product" data-cursor="Explore"><div class="wrap">
+  <div class="eyebrow mono rv">Product</div>
+  <h2 class="big rv">One view of everything the land is doing.</h2>
+  <p class="sub rv">Gaia ingests public Earth observation signals and turns them into maps, charts and alerts a farmer, planner or insurer can act on.</p>
+  <div class="layers">
+    <div class="glass layer rv"><div><div class="mono">Observe</div><h3>Every signal, one place.</h3><p>Ground motion, vegetation greenness, rainfall and soil moisture are pulled for the exact point you search.</p></div><div class="num">6<span class="mono"> data streams</span></div></div>
+    <div class="glass layer rv"><div><div class="mono">Interpret</div><h3>Plain-language readings.</h3><p>Each chart ends with a one-line reading: what changed, how fast, and how it compares with the local norm.</p></div><div class="num">3<span class="mono"> hazard models</span></div></div>
+    <div class="glass layer rv"><div><div class="mono">Act</div><h3>Alerts and seasons.</h3><p>Get a planting calendar, a flood watch and a deformation warning, tuned to your role during onboarding.</p></div><div class="num">12<span class="mono"> month outlook</span></div></div>
+  </div>
+</div></section>
+
+<section id="hazards" data-cursor="Explore"><div class="wrap">
+  <div class="eyebrow mono rv">Hazards</div>
+  <h2 class="big rv">Three questions Gaia answers first.</h2>
+  <div class="plat">
+    <div class="tabs" id="ht">
+      <button class="tab on" data-i="0"><h3>Land deformation<span class="mono">01</span></h3><p>Is the ground sinking or rising here? Track millimetre-scale displacement over time from radar interferometry.</p><span class="lk">Open deformation</span></button>
+      <button class="tab" data-i="1"><h3>Vegetation and seasons<span class="mono">02</span></h3><p>See greenness through the year and the best planting window for the crops you grow.</p><span class="lk">Open vegetation</span></button>
+      <button class="tab" data-i="2"><h3>Flooding<span class="mono">03</span></h3><p>Rainfall totals, wet-season peaks and low-lying exposure, so you know when and where water gathers.</p><span class="lk">Open flooding</span></button>
+      <button class="tab" data-i="3"><h3>Ask Gaia<span class="mono">04</span></h3><p>Ask a question in plain language. The assistant reads the dashboard and answers with the numbers.</p><span class="lk">Open assistant</span></button>
+    </div>
+    <div class="stage rv" data-cursor="Drag"><div class="ph" id="stg"><b>Image placeholder · 16:10<br>Expected: dark satellite crop with deformation heat contours</b></div></div>
+  </div>
+</div></section>
+
+<section id="features" data-cursor="Explore"><div class="wrap">
+  <div class="eyebrow mono rv">Features</div>
+  <h2 class="big rv">Built on a strict icon grid.</h2>
+  <p class="sub rv">Every control in Gaia sits on a 24 px grid with a 1.5 px stroke and round caps, so the interface reads as one system.</p>
+  <div class="icons rv" data-cursor="Inspect">
+    <div class="ic"><svg><use href="#i-def"/></svg><span>Deformation</span></div><div class="ic"><svg><use href="#i-veg"/></svg><span>Vegetation</span></div><div class="ic"><svg><use href="#i-flood"/></svg><span>Flooding</span></div><div class="ic"><svg><use href="#i-rain"/></svg><span>Rainfall</span></div><div class="ic"><svg><use href="#i-soil"/></svg><span>Soil</span></div><div class="ic"><svg><use href="#i-elev"/></svg><span>Elevation</span></div>
+    <div class="ic"><svg><use href="#i-sat"/></svg><span>Satellite</span></div><div class="ic"><svg><use href="#i-alert"/></svg><span>Alerts</span></div><div class="ic"><svg><use href="#i-rep"/></svg><span>Reports</span></div><div class="ic"><svg><use href="#i-api"/></svg><span>API</span></div><div class="ic"><svg><use href="#i-lay"/></svg><span>Layers</span></div><div class="ic"><svg><use href="#i-cal"/></svg><span>Seasons</span></div>
+  </div>
+  <div class="steps">
+    <div class="glass step rv"><div class="ph sq"><b>Img · Search</b></div><h3>Search a place</h3><p>Type any town, farm or basin. Gaia centres the map and fetches every layer.</p></div>
+    <div class="glass step rv"><div class="ph sq"><b>Img · Layers</b></div><h3>Switch hazards</h3><p>Move between deformation, vegetation and flooding without losing your spot.</p></div>
+    <div class="glass step rv"><div class="ph sq"><b>Img · Season</b></div><h3>Read the season</h3><p>Pick a crop and see suitability for every month of the year.</p></div>
+    <div class="glass step rv"><div class="ph sq"><b>Img · Alerts</b></div><h3>Set alerts</h3><p>Choose thresholds once. Gaia flags a change when it matters.</p></div>
+  </div>
+</div></section>
+
+<section id="integrations" data-cursor="Open"><div class="wrap">
+  <div class="eyebrow mono rv">Integrations</div>
+  <h2 class="big rv">Connected to the tools you use.</h2>
+  <div class="split">
+    <div class="glass card rv"><div class="logos"><span class="logo">NASIR</span></div><h3>NASIR</h3><p>Bring regional hazard intelligence into the same dashboard and compare it with satellite readings.</p></div>
+    <div class="glass card rv"><div class="logos"><span class="logo">Groq</span></div><h3>Groq</h3><p>Powers the Ask Gaia assistant with fast inference, so answers arrive while you are still looking at the chart.</p></div>
+  </div>
+</div></section>
+
+<section id="api" data-cursor="Read"><div class="wrap">
+  <div class="eyebrow mono rv">Data &amp; API</div>
+  <h2 class="big rv">Where the numbers come from.</h2>
+  <p class="sub rv">Rainfall, climate and elevation use open endpoints with no key. Ground motion and vegetation come from NASA Earthdata and need a free login. This demo shows labelled example values in their place.</p>
+  <div class="tw glass rv" style="margin-top:44px;padding:8px 14px"><table class="tbl" style="margin-top:0">
+    <thead><tr><th>Need</th><th>Source</th><th>Access</th><th>Endpoint</th></tr></thead><tbody>
+    <tr><td>Place search</td><td>Open-Meteo Geocoding</td><td>No key</td><td><code>geocoding-api.open-meteo.com/v1/search</code></td></tr>
+    <tr><td>Rainfall and flood signal</td><td>NASA GPM IMERG, Open-Meteo Archive</td><td>No key</td><td><code>archive-api.open-meteo.com/v1/archive</code></td></tr>
+    <tr><td>Temperature, solar, humidity</td><td>NASA POWER</td><td>No key</td><td><code>power.larc.nasa.gov/api/temporal/monthly/point</code></td></tr>
+    <tr><td>Elevation</td><td>SRTM via Open-Meteo</td><td>No key</td><td><code>api.open-meteo.com/v1/elevation</code></td></tr>
+    <tr><td>Land deformation</td><td>OPERA DISP-S1, ASF DAAC</td><td>Earthdata login</td><td><code>cmr.earthdata.nasa.gov/search/granules.json</code></td></tr>
+    <tr><td>Vegetation index</td><td>MODIS NDVI via AppEEARS</td><td>Earthdata login</td><td><code>appeears.earthdatacloud.nasa.gov/api/point</code></td></tr>
+    <tr><td>Soil moisture</td><td>SMAP L3</td><td>Earthdata login</td><td><code>cmr.earthdata.nasa.gov/search/granules.json</code></td></tr>
+  </tbody></table></div>
+</div></section>
+
+<section id="faq" data-cursor="Read"><div class="wrap" style="max-width:900px">
+  <div class="eyebrow mono rv">FAQ</div><h2 class="big rv" style="margin-bottom:44px">Questions.</h2>
+  <details class="rv" open><summary>Is the data live?</summary><p>Rainfall, climate and elevation can be live from open endpoints. This preview uses example values for every layer and marks each panel as demo data.</p></details>
+  <details class="rv"><summary>Does it work for any location?</summary><p>Yes. Search any place name and the map, charts and season calendar rebuild around it.</p></details>
+  <details class="rv"><summary>How precise is land deformation?</summary><p>Radar interferometry detects millimetre changes, but results depend on vegetation cover and satellite revisit time.</p></details>
+  <details class="rv"><summary>Who is Gaia for?</summary><p>Farmers, city planners, insurers and researchers. Onboarding tunes the dashboard to your role.</p></details>
+</div></section>
+
+<section data-cursor="Join"><div class="wrap"><div class="glass cta rv"><h2 class="big">Start with your own ground.</h2><p class="sub">Search a location and see its three hazards in under a minute.</p><div style="margin-top:34px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn solid" data-open-ob>Sign up</button><button class="btn" data-q="Jos">Try Jos</button></div></div></div></section>
+</main>
+<footer><div class="wrap foot"><div><div class="brand"><svg class="wm" role="img" aria-label="Gaia"><use href="#gaia-wm"/></svg></div><p class="mono" style="margin-top:16px;max-width:30ch">Land, vegetation and flood intelligence from NASA data.</p></div><div><div class="mono">Product</div><a href="#product">Overview</a><a href="#hazards">Hazards</a><a href="#features">Features</a></div><div><div class="mono">Developers</div><a href="#api">Data sources</a><a href="#integrations">Integrations</a></div><div><div class="mono">Company</div><a href="#faq">FAQ</a><a href="#top">Back to top</a></div></div></footer>
+<div id="dash" data-cursor="Map"><div class="dgrid">
+  <div class="dh"><div><h1 id="dn">Jos</h1><span class="meta" id="dm">Draw on the map, click a point, or search any place</span></div>
+    <div class="seg" id="per"><button data-p="6">6 months</button><button class="on" data-p="12">12 months</button><button data-p="24">24 months</button></div></div>
+  <div class="col" id="colL"></div>
+  <div class="col cv-col">
+    <div class="glass mapcard" id="mw">
+      <div class="mapbox"><div id="lmap" aria-label="Satellite map — draw the area to monitor"></div>
+        <div class="mtools"><button id="m-draw" class="on">Draw area</button><button id="m-view">Use map view</button><button id="m-clear">Clear</button><button id="m-full">Full screen</button><button id="m-panel" class="fs-only" aria-pressed="true">Panel</button><button id="m-help" class="fs-only" aria-label="Map tutorial">?</button></div><div class="mvig" aria-hidden="true"></div>
+        <div class="mhint" id="m-hint">Drag to draw an area</div>
+        <div class="msrc mono" id="m-src">Satellite</div>
+        <div class="mlegend" id="m-legend" hidden></div>
+      </div>
+      <div class="mon" id="mon"></div>
+    </div>
+    <div class="glass cv cvbox" id="cvbox"><button class="cv-tog" id="cv-tog" aria-expanded="true" aria-controls="colC"><span class="mono">Details</span><span class="cv-sum" id="cv-sum"></span><span class="cv-act" id="cv-act">Collapse</span><i class="chev" aria-hidden="true"></i></button><div class="cv-body"><div id="colC"></div></div></div>
+  </div>
+  <div class="col" id="colR"></div>
+</div></div>
+<!-- onboarding -->
+<div id="ob" role="dialog" aria-modal="true" aria-label="Welcome to Gaia"><div class="obc glass">
+  <div class="obl"><svg class="wm" style="height:30px;width:84px" aria-hidden="true"><use href="#gaia-wm"/></svg><h2 id="ot">Welcome</h2><p id="op"></p><div class="dots" id="od"><i class="on"></i><i></i><i></i><i></i></div></div>
+  <div><div id="ob-b"></div><div class="obf"><button class="btn" id="ob-x">Skip</button><span style="display:flex;gap:8px"><button class="btn" id="ob-bk">Back</button><button class="btn solid" id="ob-n">Continue</button></span></div></div>
+</div></div>
+<style>
+/* satellite map + monitor panel */
+.mapcard{padding:0;overflow:hidden}
+.mapbox{position:relative;height:440px;border-bottom:1px solid var(--line)}
+#lmap{position:absolute;inset:0;background:#0b0b0b}
+#lmap.drawing{cursor:crosshair}
+#lmap a,#lmap button,.mapbox button,.mon button,.mon summary,.mon input{cursor:pointer}
+.leaflet-container{font-family:var(--f-body)}
+.leaflet-bar{border:1px solid var(--line)!important;border-radius:12px!important;overflow:hidden}
+.leaflet-bar a{background:rgba(10,10,10,.78)!important;color:var(--ink)!important;border-bottom-color:var(--line)!important}
+.leaflet-bar a:hover{background:rgba(40,40,40,.9)!important}
+.leaflet-control-attribution{background:rgba(5,5,5,.62)!important;color:var(--mute)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--ink)!important}
+.mtools{position:absolute;z-index:500;top:12px;left:56px;display:flex;gap:6px;flex-wrap:wrap}
+.mtools button{height:32px;padding:0 13px;border-radius:99px;border:1px solid var(--line);background:rgba(10,10,10,.72);backdrop-filter:blur(10px);font-size:12px;color:var(--ink)}
+.mtools button.on{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.mhint{position:absolute;z-index:500;left:50%;bottom:12px;transform:translateX(-50%);padding:6px 12px;border-radius:99px;background:rgba(5,5,5,.72);font:500 11px var(--f-mono);letter-spacing:.04em;white-space:nowrap;pointer-events:none}
+.msrc{position:absolute;z-index:500;top:14px;right:12px;font-size:10px;background:rgba(5,5,5,.6);padding:4px 8px;border-radius:8px;pointer-events:none}
+.mlegend{position:absolute;z-index:500;left:12px;bottom:44px;display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:14px;background:rgba(8,8,8,.82);backdrop-filter:blur(10px);font-size:11px;color:var(--mute);max-width:250px}
+.mlegend b{color:var(--ink);font-weight:500;font-size:12px}
+.mlegend span i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+.mlegend .ramp{height:8px;border-radius:4px;width:200px;max-width:100%}
+.mlegend .rl{display:flex;justify-content:space-between;gap:6px}.mlegend .rl em{font-style:normal}
+.mlegend .op{display:flex;align-items:center;gap:8px;margin-top:2px}.mlegend .op input{flex:1;accent-color:#fff}
+.mon{padding:18px}
+.mon-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.mon-h h4{margin:4px 0 2px;font:500 20px var(--f-display);letter-spacing:-.02em}
+.mon-m{font-size:12px;color:var(--mute)}
+.mon-p{font-size:13px;color:var(--mute);margin-top:10px}
+.mon-p.small{font-size:12px;color:var(--faint)}
+.mon-p.busy::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:8px;animation:pl 1.2s infinite}
+.mon-per{margin-top:12px}
+.mon-msg{margin-top:12px;padding:12px 14px;border-radius:14px;font-size:13px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.mon-msg.error{border-color:rgba(248,113,113,.5)}.mon-msg.nodata{border-color:rgba(250,204,21,.45)}
+.mon-msg ul,.mon-notes,.eng details ul{margin:6px 0 0;padding-left:18px;color:var(--mute);font-size:12px}
+.mon-notes{margin-top:12px}
+.engs{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.eng{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,.045)}
+.eng.off{opacity:.55}
+.eng>svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-top:1px}
+.eng-t{flex:1;min-width:0}
+.eng-n{display:flex;justify-content:space-between;gap:8px;font-weight:500;font-size:14px;flex-wrap:wrap}
+.eng-s{font-size:12px;color:var(--mute);margin-top:3px}
+.eng-l{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.eng-l button{height:28px;padding:0 11px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--mute)}
+.eng-l button.on,.eng-l button:hover{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.eng details{margin-top:8px;padding:0;border:0}
+.eng summary{font:400 12px var(--f-body);color:var(--mute);letter-spacing:0}
+.eng summary::after{content:none}
+.ck,.ck-sp{flex:none;width:18px;height:18px;margin-top:2px}
+.ck{border-radius:5px;border:1px solid var(--faint)}
+.ck.on{background:var(--solid);border-color:var(--solid);box-shadow:inset 0 0 0 3px #050505}
+.tag.s-ok,.tag.c-high{background:rgba(74,222,128,.18);color:#bbf7d0}
+.tag.c-medium,.tag.s-running,.tag.st-running,.tag.st-queued{background:rgba(250,204,21,.16);color:#fef08a}
+.tag.c-low,.tag.s-failed,.tag.st-failed{background:rgba(248,113,113,.18);color:#fecaca}
+.tag.s-no,.tag.s-skipped,.tag.s-queued{background:rgba(255,255,255,.07);color:var(--faint)}
+.tag.st-done{background:rgba(74,222,128,.18);color:#bbf7d0}.tag.st-partial{background:rgba(250,204,21,.16);color:#fef08a}
+.mon-a{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.mon-a .btn{height:38px;padding:0 16px;font-size:13px}
+.mon-a .btn[disabled]{opacity:.45}
+.mon-list{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.mon-list .mono{margin-right:4px}
+.mon-q{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding:10px 12px;border-radius:14px;background:rgba(250,204,21,.07);border:1px solid rgba(250,204,21,.25);font-size:12px;color:var(--mute)}
+.mon-q span:nth-child(2){flex:1;min-width:0}
+.mon-q .btn{height:32px;padding:0 13px;font-size:12px}
+.mon-p.small b{color:var(--ink);font-weight:500}
+.tag.st-cancelled,.tag.s-cancelled{background:rgba(255,255,255,.07);color:var(--faint)}
+@media (max-width:760px){.mapbox{height:340px}.mtools{left:12px;top:auto;bottom:44px}.mhint{display:none}}
+/* full-screen map: map + monitor side panel, below the nav */
+.mapcard.full{position:fixed;z-index:40;top:calc(76px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:minmax(0,1fr) 390px;background:rgba(8,8,8,.92)}
+.mapcard.full .mapbox{height:auto;border-bottom:0;border-right:1px solid var(--line)}
+.mapcard.full .mon{overflow-y:auto}
+body.map-full #dash{overflow:hidden}
+@media (max-width:860px){.mapcard.full{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,42%)}.mapcard.full .mapbox{border-right:0;border-bottom:1px solid var(--line)}}
+/* data-driven panels */
+.pl{font-size:12px;color:var(--mute);margin:4px 0 12px}
+.empty{display:flex;flex-direction:column;gap:6px;padding:18px 16px;border-radius:14px;border:1px dashed var(--line);margin-top:8px}
+.empty b{font-weight:500;font-size:14px}.empty span{font-size:12px;color:var(--mute)}
+.chwrap{position:relative}
+.ctip{position:absolute;z-index:5;pointer-events:none;padding:8px 11px;border-radius:10px;background:rgba(5,5,5,.92);border:1px solid var(--line);font-size:12px;color:var(--mute);line-height:1.45;white-space:nowrap}
+.ctip b{display:block;color:var(--ink);font-weight:500}.ctip em{font-style:normal;color:#fef08a}
+.legend i.h{height:9px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 2px,transparent 2px 5px);border:1px solid rgba(255,255,255,.4)}
+.cv .top .seg{justify-content:flex-end}
+.dt{min-width:520px!important}
+.dt td,.dt th{white-space:nowrap}
+.finds{display:flex;flex-direction:column;gap:8px}
+.find{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.045);transition:background .2s;cursor:pointer}
+.find:hover{background:var(--glass-2)}
+.find-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:500;font-size:13px}
+.find-t{font-size:12px;color:var(--mute)}
+.flg{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.flg:last-child{border-bottom:0}.flg span{color:var(--mute)}.flg b{font-weight:500;text-align:right}.flg.bad b{color:#fef08a}
+.why{margin:0;padding-left:18px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:5px}
+.panel details{border:0;padding:8px 0 0}.panel summary{font:400 12px var(--f-body);color:var(--ink);letter-spacing:0;cursor:pointer}.panel summary::after{content:none}
+.panel .tag .c-high{color:#bbf7d0}.panel .tag .c-medium{color:#fef08a}.panel .tag .c-low{color:#fecaca}
+.cals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.cal{display:flex;justify-content:space-between;gap:6px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:12px;color:var(--mute)}
+.cal b{font-weight:500;font-family:var(--f-mono);font-size:11px}
+.cal.on{background:var(--solid);color:var(--on-solid)}.cal.unseen{opacity:.45}
+.cov{display:flex;flex-direction:column;gap:3px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px;color:var(--mute)}
+.cov:last-of-type{border-bottom:0}.cov b{color:var(--ink);font-weight:500;font-size:13px}
+.dl{color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;width:fit-content}
+.ring{background:none}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);z-index:120;opacity:0;transition:.3s;padding:12px 20px;border-radius:99px;background:var(--solid);color:var(--on-solid);font-weight:500;font-size:14px;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ---- design refinement: charcoal HUD, compact detail panel, immersive full screen ---- */
+.glass{background:rgba(255,255,255,.045)}
+.nav .pill{background:rgba(22,22,22,.72)}
+.cvbox{padding:0}
+.cv-tog{display:flex;align-items:center;gap:12px;width:100%;padding:12px 20px;text-align:left;border-radius:var(--r) var(--r) 0 0}
+.cv-tog:hover{background:rgba(255,255,255,.03)}
+.cv-sum{flex:1;min-width:0;font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .3s}
+.cv-act{font-size:12px;color:var(--mute);margin-left:auto}
+.chev{width:8px;height:8px;border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);transform:translateY(2px) rotate(-135deg);transition:transform .35s}
+.cv-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .45s cubic-bezier(.2,.7,.2,1)}
+.cv-body>#colC{overflow:hidden;min-height:0;padding:0 20px 20px;transition:opacity .3s,padding .45s}
+.cvbox.collapsed .cv-body{grid-template-rows:0fr}.cvbox.collapsed #colC{opacity:0;padding-bottom:0}
+.cvbox.collapsed .cv-sum{opacity:1}.cvbox.collapsed .chev{transform:translateY(-2px) rotate(45deg)}
+.mapbox{transition:height .45s cubic-bezier(.2,.7,.2,1)}
+body.cv-collapsed .mapcard:not(.full) .mapbox{height:max(440px,calc(100vh - 330px))}
+.fs-only{display:none!important}
+.mvig{display:none}
+/* full screen: the map becomes the workspace; the nav stays for orientation, secondary chrome hides */
+.mapcard.full{inset:0;display:block;border:0;border-radius:0;background:#0b0b0b;animation:fsin .5s cubic-bezier(.2,.7,.2,1)}
+@keyframes fsin{from{opacity:.4;clip-path:inset(5% 6% round 22px)}to{opacity:1;clip-path:inset(0 round 0)}}
+.mapcard.full .mapbox{position:absolute;inset:0;height:auto;border:0}
+.mapcard.full .mvig{display:block;position:absolute;inset:0;z-index:450;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 58%,rgba(0,0,0,.5));box-shadow:inset 0 130px 90px -70px rgba(0,0,0,.7)}
+.mapcard.full .fs-only{display:inline-flex!important;align-items:center}
+.mapcard.full .mtools{top:calc(84px + env(safe-area-inset-top,0px));left:62px}
+.mapcard.full .leaflet-top{top:calc(72px + env(safe-area-inset-top,0px))}
+.mapcard.full .msrc{display:none}
+.mapcard.full .mlegend{bottom:34px}
+.mapcard.full .mon{position:absolute;z-index:520;right:max(16px,env(safe-area-inset-right,0px));top:calc(84px + env(safe-area-inset-top,0px));max-height:calc(100% - 100px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));width:min(380px,calc(100% - 32px));overflow-y:auto;background:rgba(14,14,14,.76);backdrop-filter:blur(22px) saturate(120%);-webkit-backdrop-filter:blur(22px);border:1px solid var(--line);border-radius:var(--r);transition:transform .45s cubic-bezier(.2,.7,.2,1),opacity .3s}
+body.mon-hide .mapcard.full .mon{transform:translateX(calc(100% + 32px));opacity:0;pointer-events:none}
+body.map-full .dsearch,body.map-full .nav-d .av,body.map-full .nav-d .sp{display:none}
+body.map-full .nav-d .brand{padding:10px 16px;border-radius:99px;border:1px solid var(--line);background:rgba(14,14,14,.72);backdrop-filter:blur(18px)}
+body.map-full #map,body.map-full #veil{display:none}
+/* contextual popup + tutorial */
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:rgba(14,14,14,.94);color:var(--ink);border:1px solid var(--line);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.leaflet-popup-content-wrapper{border-radius:14px}
+.leaflet-popup-content{margin:12px 16px;font:13px/1.45 var(--f-body);min-width:180px}.leaflet-popup-content b{font-weight:500}.leaflet-popup-content .mono{display:block;margin-bottom:4px}
+.leaflet-popup-content p{margin:2px 0;color:var(--mute)}.leaflet-container a.leaflet-popup-close-button{color:var(--mute)}
+.pop-sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tour{position:absolute;z-index:1200;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(420px,calc(100% - 32px));padding:18px 18px 14px;border-radius:18px;background:rgba(14,14,14,.92);backdrop-filter:blur(22px);border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.55);animation:tin .35s cubic-bezier(.2,.7,.2,1)}
+@keyframes tin{from{opacity:0;transform:translate(-50%,12px)}}
+.tour h5{margin:6px 0;font:500 18px var(--f-display);letter-spacing:-.02em}.tour p{font-size:13px;color:var(--mute)}
+.tour .tf{display:flex;align-items:center;gap:8px;margin-top:14px}.tour .tf .sp{flex:1}
+.tour .tf button{height:32px;padding:0 14px;border-radius:99px;border:1px solid var(--line);font-size:12px;cursor:pointer}.tour .tf .nx{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.tour .td{display:flex;gap:5px}.tour .td i{width:16px;height:3px;border-radius:2px;background:var(--line)}.tour .td i.on{background:#fff}
+.mapcard.touring .mhint{display:none}
+.tour-on{outline:2px solid #fff!important;outline-offset:4px;animation:tpl 1.6s infinite}
+@keyframes tpl{50%{outline-color:rgba(255,255,255,.3)}}
+@media (max-width:760px){.mapcard.full .mon{top:auto;left:12px;right:12px;width:auto;bottom:12px;max-height:44%}.mapcard.full .mtools{top:calc(74px + env(safe-area-inset-top,0px));left:12px;bottom:auto}body.mon-hide .mapcard.full .mon{transform:translateY(calc(100% + 24px))}.tour{bottom:auto;top:calc(124px + env(safe-area-inset-top,0px))}body.map-full .nav-d .pill{display:flex;overflow-x:auto;max-width:calc(100vw - 140px)}}
+@media (prefers-reduced-motion:reduce){.mapcard.full,.tour{animation:none}.cv-body,.mapbox,.mapcard.full .mon{transition:none}.tour-on{animation:none}}
+
+/* Gaia AI overlay */
+#gai{position:fixed;z-index:1300;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+body:not(.is-dash) #gai{display:none}
+body.map-full:not(.mon-hide) #gai{right:calc(min(380px,100% - 32px) + 32px)}
+.gai-fab{display:flex;align-items:center;gap:10px;height:46px;padding:0 18px 0 8px;border-radius:99px;background:rgba(18,18,18,.86);border:1px solid var(--line);backdrop-filter:blur(18px);box-shadow:0 10px 30px rgba(0,0,0,.45);font-weight:500;font-size:14px;transition:background .2s}
+.gai-fab:hover{background:rgba(34,34,34,.92)}#gai.open .gai-fab{display:none}
+.gai-orb{width:30px;height:30px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff 0 6%,rgba(255,255,255,.5) 22%,rgba(150,180,255,.18) 55%,transparent 70%);box-shadow:0 0 0 1px rgba(255,255,255,.35),0 0 0 6px rgba(255,255,255,.05);position:relative}
+.gai-orb::after{content:"";position:absolute;inset:-5px 2px;border-radius:50%;border:1px solid rgba(255,255,255,.4);transform:rotate(-24deg) scaleY(.38)}
+.gai-p{padding:0!important;width:min(400px,calc(100vw - 32px));height:min(600px,calc(100vh - 110px));display:flex;flex-direction:column;background:rgba(16,16,16,.9)!important;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden;animation:gin .3s cubic-bezier(.2,.7,.2,1)}
+@keyframes gin{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.gai-p header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}.gai-p header div{flex:1;min-width:0}
+.gai-p header b{display:block;font:500 16px var(--f-display)}.gai-p header small{font:500 10px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.gai-x{width:32px;height:32px;border-radius:50%;font-size:20px;color:var(--mute)}.gai-x:hover{background:var(--glass-2);color:var(--ink)}
+.gai-ctx{padding:8px 16px;font-size:12px;color:var(--mute);border-bottom:1px solid var(--line)}.gai-ctx b{color:var(--ink);font-weight:500}
+.gai-log{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
+.gai-m{align-self:flex-start;max-width:92%;padding:10px 13px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-size:13.5px;line-height:1.5}
+.gai-m p+p,.gai-m ul{margin-top:6px}.gai-m ul{padding-left:18px;margin-bottom:0}.gai-m b{font-weight:600}
+.gai-m.me{align-self:flex-end;border-radius:14px 14px 4px 14px;background:var(--solid);color:var(--on-solid);border-color:transparent}
+.gai-m.warn{border-color:rgba(250,204,21,.4);background:rgba(250,204,21,.06)}
+.gai-m small{display:block;margin-top:8px;font:400 10.5px/1.45 var(--f-mono);color:var(--faint)}.gai-m small.w{color:#fef08a}
+.gai-m.typing{display:flex;gap:5px}.gai-m.typing i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:pl 1s infinite}.gai-m.typing i:nth-child(2){animation-delay:.15s}.gai-m.typing i:nth-child(3){animation-delay:.3s}
+.gai-sg{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px}.gai-sg:not(:empty){padding-bottom:10px}
+.gai-sg button{padding:6px 11px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--mute);text-align:left}.gai-sg button:hover{color:var(--ink);border-color:var(--ink)}
+.gai-f{display:flex;gap:8px;padding:10px 16px 6px;border-top:1px solid var(--line)}
+.gai-f input{flex:1;min-width:0;height:42px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.04);padding:0 16px;outline:0;font-size:14px}.gai-f input:focus{border-color:var(--ink)}
+.gai-f .btn{width:42px;height:42px;padding:0;justify-content:center;font-size:17px}.gai-f .btn[disabled]{opacity:.4}
+.gai-fine{padding:0 16px 12px;font-size:10.5px;color:var(--faint)}
+@media (max-width:760px){#gai{right:12px;bottom:12px}body.map-full:not(.mon-hide) #gai{right:12px;bottom:calc(44% + 24px)}.gai-p{height:min(560px,calc(100vh - 90px))}}
+@media (prefers-reduced-motion:reduce){.gai-p{animation:none}}
+</style>
+<script>
+(function(){
+'use strict';
+document.documentElement.classList.add('js');
+var $=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* gazetteer: name, region, lat, lon, elev m, annual rain mm, peak month index, temp C, deformation mm/yr */
+var G=[
+['Jos','Plateau, Nigeria',9.93,8.89,1238,1400,7,22,-3.2],['Lagos','Lagos, Nigeria',6.52,3.38,41,1600,5,27,-14.5],['Abuja','FCT, Nigeria',9.07,7.40,476,1500,8,26,-4.1],
+['Kano','Kano, Nigeria',12.00,8.52,472,870,7,27,-2.6],['Accra','Greater Accra, Ghana',5.60,-0.19,61,730,5,27,-6.8],['Nairobi','Nairobi, Kenya',-1.29,36.82,1795,950,3,18,-2.0],
+['Cairo','Cairo, Egypt',30.04,31.24,23,25,0,22,-9.5],['Jakarta','Java, Indonesia',-6.20,106.85,8,1900,0,28,-82.0],['Dhaka','Dhaka, Bangladesh',23.81,90.41,8,2100,6,26,-17.5],
+['Houston','Texas, USA',29.76,-95.37,15,1300,5,21,-21.0],['Mexico City','CDMX, Mexico',19.43,-99.13,2240,700,6,17,-190.0],['Mumbai','Maharashtra, India',19.08,72.88,14,2400,6,27,-6.2],
+['Manila','Luzon, Philippines',14.60,120.98,16,2000,7,28,-34.0],['Lima','Lima, Peru',-12.05,-77.04,154,12,1,19,-8.4],['Sydney','NSW, Australia',-33.87,151.21,58,1200,3,18,-1.8],['London','England, UK',51.51,-0.13,11,600,10,11,-0.9]];
+var CROPS={Maize:{need:90,t:[18,30]},Rice:{need:160,t:[22,32]},Sorghum:{need:60,t:[20,35]},Cassava:{need:75,t:[22,32]}};
+function hash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function find(q){q=q.trim().toLowerCase();if(!q)return null;for(var i=0;i<G.length;i++)if(G[i][0].toLowerCase()===q)return G[i];for(i=0;i<G.length;i++)if(G[i][0].toLowerCase().indexOf(q)===0||G[i][1].toLowerCase().indexOf(q)>-1)return G[i];return null}
+function place(q){var g=find(q);if(g)return mk(g,false);
+  var r=rng(hash(q.toLowerCase()));var lat=(r()*100-45),lon=r()*300-150;
+  var n=q.trim().replace(/\b\w/g,function(c){return c.toUpperCase()});
+  return mk([n,'Not in demo list · example data',lat,lon,Math.round(r()*900+10),Math.round(300+r()*1900),Math.floor(r()*12),Math.round(12+r()*16),-Math.round(r()*300)/10],true)}
+function mk(g,fake){
+  var r=rng(hash(g[0]));var P={name:g[0],region:g[1],lat:g[2],lon:g[3],elev:g[4],annual:g[5],peak:g[6],temp:g[7],rate:g[8],fake:fake,seed:hash(g[0])};
+  var k=g[5]<200?.6:g[5]<800?1.1:1.5;var w=[],sum=0,i;
+  for(i=0;i<12;i++){var d=Math.min(Math.abs(i-g[6]),12-Math.abs(i-g[6]));var v=Math.exp(k*Math.cos(2*Math.PI*d/12));w.push(v);sum+=v}
+  P.clim=w.map(function(v){return g[5]*v/sum});
+  /* 24 months ending Nov 2026 (index 0 = Dec 2024) */
+  P.rain=[];P.ndvi=[];P.mon=[];
+  for(i=0;i<24;i++){var m=(11+i)%12;P.mon.push(m);P.rain.push(Math.max(0,P.clim[m]*(.7+r()*.65)))}
+  for(i=0;i<24;i++){var a=P.rain[i],b=P.rain[Math.max(0,i-1)];var x=.22+.5*Math.min(1,(a*.4+b*.6)/Math.max(60,g[5]/9));P.ndvi.push(Math.round(Math.min(.86,x+(r()-.5)*.04)*100)/100)}
+  P.def=[];var c=0;for(i=0;i<24;i++){c+=P.rate/12+(r()-.5)*1.6;P.def.push(Math.round((c+Math.sin(i*Math.PI/6)*1.8)*10)/10)}
+  P.hot=['N sector','E sector','S sector','W sector'].map(function(n,j){return {n:n,v:Math.round(P.rate*(.5+r()*1.2)*10)/10,x:18+r()*64,y:16+r()*68}});
+  P.soil=Math.round(18+Math.min(30,P.rain[23]/6)+r()*6);P.hum=Math.round(35+Math.min(45,P.annual/45)+r()*8);P.t=Math.round(P.temp+(r()-.5)*3);
+  return P}
+function suit(P,crop){var C=CROPS[crop],o=[];for(var m=0;m<12;m++){var a=(P.clim[m]+P.clim[(m+1)%12]+P.clim[(m+2)%12])/3;var s=Math.min(1,a/C.need);if(a>C.need*2.6)s*=.55;if(P.temp<C.t[0])s*=Math.max(.2,1-(C.t[0]-P.temp)/10);if(P.temp>C.t[1])s*=.8;o.push(Math.round(s*100))}return o}
+/* ---- ambient particle field: charcoal background, particles drift toward the cursor with eased interpolation ---- */
+var cv=$('#map'),cx=cv.getContext('2d'),pan={x:0,y:0},cur=null,PT=[],mx=-1,my=-1,smx=-1,smy=-1,dpr=Math.min(devicePixelRatio||1,1.5),bgRaf=0;
+var stillBg=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function seedBg(){var w=innerWidth,h=innerHeight,n=Math.round(Math.min(160,w*h/9000));cv.width=w*dpr;cv.height=h*dpr;PT=[];
+  for(var i=0;i<n;i++){var z=.25+Math.random()*.75;PT.push({x:Math.random()*w,y:Math.random()*h,z:z,ox:0,oy:0,r:.6+z*1.2,a:.08+z*.26,ph:Math.random()*6.28})}}
+function frameBg(t){bgRaf=0;if(document.hidden||document.body.classList.contains('map-full'))return;
+  var w=innerWidth,h=innerHeight;cx.setTransform(dpr,0,0,dpr,0,0);cx.clearRect(0,0,w,h);
+  if(mx>=0){smx+=(mx-smx)*.06;smy+=(my-smy)*.06}
+  var px=mx>=0?(smx/w-.5):0,py=mx>=0?(smy/h-.5):0;
+  for(var i=0;i<PT.length;i++){var p=PT[i],tx=0,ty=0;
+    if(mx>=0){var dx=smx-p.x,dy=smy-p.y,d2=dx*dx+dy*dy,f=Math.exp(-d2/36000)*p.z;tx=dx*f*.18;ty=dy*f*.18}
+    p.ox+=(tx-px*26*p.z-p.ox)*.05;p.oy+=(ty-py*26*p.z-p.oy)*.05;
+    var drift=stillBg?0:Math.sin(t/4000+p.ph)*4*p.z;
+    cx.globalAlpha=p.a;cx.fillStyle='#f3f3f1';cx.beginPath();cx.arc(p.x+p.ox,p.y+p.oy+drift,p.r,0,6.2832);cx.fill()}
+  if(!stillBg)bgRaf=requestAnimationFrame(frameBg)}
+function redraw(){if(!bgRaf)bgRaf=requestAnimationFrame(frameBg)}
+addEventListener('pointermove',function(e){if(mx<0){smx=e.clientX;smy=e.clientY}mx=e.clientX;my=e.clientY;if(stillBg)redraw()},{passive:true});
+document.addEventListener('visibilitychange',redraw);
+new MutationObserver(redraw).observe(document.body,{attributes:true,attributeFilter:['class']});
+addEventListener('resize',function(){seedBg();redraw()});
+seedBg();redraw();
+addEventListener('resize',function(){if(dashOn)render()});
+function toast(t){var e=$('.toast')||document.body.appendChild(Object.assign(document.createElement('div'),{className:'toast'}));e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('show')},2200)}
+var dashOn=false,render=function(){};
+window.__G={G:G,place:place,suit:suit,CROPS:CROPS,MN:MN,$:$,$$:$$,toast:toast,redraw:redraw,setCur:function(p){cur=p;redraw()},pan:pan,setRender:function(f){render=f},setDash:function(v){dashOn=v},find:find};
+})();
+</script>
+<script>
+(function(){
+'use strict';
+var W=window.__G,$=W.$,$$=W.$$,MN=W.MN,toast=W.toast;
+var P=W.place('Jos'),st={tab:'deformation',per:12,crop:'Maize',hz:['deformation','vegetation','flooding'],role:'Researcher',sel:0,page:'overview'};
+var NS='http://www.w3.org/2000/svg';
+function f1(n){return (Math.round(n*10)/10).toFixed(1)}
+function last(a,n){return a.slice(a.length-n)}
+/* ---------- reveal ---------- */
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.12});
+$$('.rv').forEach(function(el,i){el.style.transitionDelay=(i%4)*70+'ms';io.observe(el)});
+/* ---------- routing ---------- */
+function route(){var d=location.hash==='#dashboard';document.body.classList.toggle('is-dash',d);W.setDash(d);
+  if(d){W.setCur(P);render();scrollTo(0,0)}else{if(!location.hash||location.hash==='#top'){}}}
+addEventListener('hashchange',route);
+function openDash(q,tab){if(window.GAIA_MAP)window.GAIA_MAP.locate(q||'Jos');if(tab&&window.GAIA_DASH)window.GAIA_DASH.setTab(tab);P=W.place(q||'Jos');W.pan.x=0;W.pan.y=0;st.sel=0;if(tab)st.tab=tab;W.setCur(P);if(location.hash==='#dashboard'){route()}else location.hash='dashboard'}
+/* ---------- hero + landing ---------- */
+$('#hs').addEventListener('submit',function(e){e.preventDefault();var q=$('#hq').value.trim()||'Jos';openDash(q)});
+$$('[data-q]').forEach(function(b){b.addEventListener('click',function(){openDash(b.getAttribute('data-q'))})});
+var stg=[['Land deformation','dark satellite crop with deformation heat contours'],['Vegetation','NDVI greenness map over farmland, monochrome'],['Flooding','river basin with rainfall and flood extent overlay'],['Ask Gaia','chat panel over a terrain map with a cited answer']];
+$$('#ht .tab').forEach(function(t){t.addEventListener('click',function(e){var i=+t.getAttribute('data-i');
+  if(t.classList.contains('on')&&e.target.classList.contains('lk')){openDash('Jos',['deformation','vegetation','flooding','deformation'][i]);return}
+  $$('#ht .tab').forEach(function(x){x.classList.remove('on')});t.classList.add('on');$('#stg b').innerHTML='Image placeholder · 16:10<br>Expected: '+stg[i][1]})});
+$('#bg').addEventListener('click',function(){$('#mm').classList.toggle('open')});
+$$('#mm a').forEach(function(a){a.addEventListener('click',function(){$('#mm').classList.remove('open')})});
+/* ---------- dashboard: rendered from engine results by gaia-dash.js ---------- */
+function render(){if(window.GAIA_DASH)window.GAIA_DASH.render(true)}
+W.setRender(render);
+/* search */
+function sugg(q){var sg=$('#sg');q=q.trim().toLowerCase();var m=W.G.filter(function(g){return !q||g[0].toLowerCase().indexOf(q)===0||g[1].toLowerCase().indexOf(q)>-1}).slice(0,5);
+  sg.innerHTML=m.map(function(g){return '<button data-q="'+g[0]+'">'+g[0]+'<small>'+g[1]+'</small></button>'}).join('')+(q&&!m.length?'<button data-q="'+q.replace(/[&<>"]/g,'')+'">Search "'+q.replace(/[&<>"]/g,'')+'"<small>OpenStreetMap</small></button>':'');
+  sg.classList.toggle('open',!!sg.innerHTML);$$('button',sg).forEach(function(b){b.addEventListener('mousedown',function(e){e.preventDefault();$('#ds').value='';sg.classList.remove('open');openDash(b.getAttribute('data-q'))})})}
+$('#ds').addEventListener('input',function(){sugg(this.value)});$('#ds').addEventListener('focus',function(){sugg(this.value)});$('#ds').addEventListener('blur',function(){setTimeout(function(){$('#sg').classList.remove('open')},120)});
+$('#ds').addEventListener('keydown',function(e){if(e.key==='Enter'&&this.value.trim()){var v=this.value;this.value='';$('#sg').classList.remove('open');openDash(v)}});
+/* map drag */
+var dr=null,dash=$('#dash');
+dash.addEventListener('pointerdown',function(e){var t=e.target;if(t.id==='dash'||t.classList.contains('dgrid')||t.classList.contains('col')||t.id==='mw'||t.id==='mks'){dr={x:e.clientX-W.pan.x,y:e.clientY-W.pan.y}}});
+addEventListener('pointermove',function(e){if(!dr)return;W.pan.x=e.clientX-dr.x;W.pan.y=e.clientY-dr.y;W.redraw()});
+addEventListener('pointerup',function(){dr=null});
+/* ---------- onboarding ---------- */
+var ob=$('#ob'),step=0,pick={loc:'Jos',alerts:{digest:true,flood:true,def:false}};
+var ico={Farmer:'i-veg',Planner:'i-lay',Insurer:'i-alert',Researcher:'i-sat'};
+var roleSub={Farmer:'Planting windows and rain',Planner:'Ground motion and elevation',Insurer:'Flood exposure and alerts',Researcher:'All layers and raw data'};
+var roleTab={Farmer:'vegetation',Planner:'deformation',Insurer:'flooding',Researcher:'deformation'};
+var hz={deformation:['Land deformation','Subsidence and uplift in mm per year','i-def'],vegetation:['Vegetation and seasons','Greenness and planting windows','i-veg'],flooding:['Flooding','Rainfall and low-lying exposure','i-flood']};
+var T=[['Welcome to Gaia','Tell us who you are so the dashboard opens on what matters most to you.'],['What should we track?','Pick one or more. Hidden hazards stay one click away in the dashboard.'],['Where are you looking?','Search any place. You can change it later from the dashboard search.'],['Stay informed','Choose how Gaia reaches you. These are example settings in this demo.']];
+function ico_(i){return '<svg viewBox="0 0 24 24"><use href="#'+i+'"/></svg>'}
+function obRender(){
+  $('#ot').textContent=T[step][0];$('#op').textContent=T[step][1]+(step===0?'':'');
+  $$('#od i').forEach(function(d,i){d.classList.toggle('on',i<=step)});$('#ob-bk').style.visibility=step?'visible':'hidden';$('#ob-n').textContent=step===3?'Open dashboard':'Continue';
+  var b=$('#ob-b'),h='';
+  if(step===0)Object.keys(ico).forEach(function(r){h+='<button class="opt'+(st.role===r?' on':'')+'" data-r="'+r+'">'+ico_(ico[r])+'<span>'+r+'<small>'+roleSub[r]+'</small></span></button>'});
+  if(step===1)Object.keys(hz).forEach(function(k){h+='<button class="opt'+(st.hz.indexOf(k)>-1?' on':'')+'" data-h="'+k+'">'+ico_(hz[k][2])+'<span>'+hz[k][0]+'<small>'+hz[k][1]+'</small></span></button>'});
+  if(step===2){h='<input class="fld" id="ol" placeholder="Search a city or region" value="'+pick.loc+'" autocomplete="off"><div class="chips">'+['Jos','Lagos','Nairobi','Jakarta','Dhaka','Houston'].map(function(c){return '<button class="chip'+(pick.loc===c?' on':'')+'" data-l="'+c+'">'+c+'</button>'}).join('')+'</div>'}
+  if(step===3)h=[['digest','Weekly email digest'],['flood','Flood watch alerts'],['def','Deformation threshold alerts']].map(function(a){return '<div class="tog"><span>'+a[1]+'</span><button class="sw'+(pick.alerts[a[0]]?' on':'')+'" data-a="'+a[0]+'" aria-label="'+a[1]+'"></button></div>'}).join('');
+  b.innerHTML=h;
+  $$('[data-r]',b).forEach(function(x){x.addEventListener('click',function(){st.role=x.getAttribute('data-r');$('#op').textContent='Opening on '+roleTab[st.role]+' for a '+st.role.toLowerCase()+'.';obRender()})});
+  $$('[data-h]',b).forEach(function(x){x.addEventListener('click',function(){var k=x.getAttribute('data-h'),i=st.hz.indexOf(k);if(i>-1&&st.hz.length>1)st.hz.splice(i,1);else if(i<0)st.hz.push(k);obRender()})});
+  $$('[data-l]',b).forEach(function(x){x.addEventListener('click',function(){pick.loc=x.getAttribute('data-l');obRender()})});
+  $$('[data-a]',b).forEach(function(x){x.addEventListener('click',function(){var k=x.getAttribute('data-a');pick.alerts[k]=!pick.alerts[k];obRender()})});
+  var ol=$('#ol');if(ol)ol.addEventListener('input',function(){pick.loc=ol.value})}
+function obOpen(){step=0;ob.classList.add('open');obRender()}
+function obClose(){ob.classList.remove('open')}
+$$('[data-open-ob]').forEach(function(b){b.addEventListener('click',function(){$('#mm').classList.remove('open');obOpen()})});
+$('#ob-x').addEventListener('click',obClose);
+$('#ob-bk').addEventListener('click',function(){if(step>0){step--;obRender()}});
+$('#ob-n').addEventListener('click',function(){if(step<3){step++;obRender();return}
+  obClose();st.tab=st.hz.indexOf(roleTab[st.role])>-1?roleTab[st.role]:st.hz[0];st.page=st.tab;var n=pick.loc.trim()||'Jos';$('#avt').textContent=st.role.slice(0,2).toUpperCase();openDash(n,st.tab);toast('Dashboard ready for '+n)});
+addEventListener('keydown',function(e){if(e.key==='Escape')obClose()});
+ob.addEventListener('pointerdown',function(e){if(e.target===ob)obClose()});
+/* init */
+W.setCur(P);route();
+})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/gaia-map.js"></script>
+<script src="/gaia-dash.js"></script>
+<script src="/gaia-assist.js"></script>
+
+</body></html>
